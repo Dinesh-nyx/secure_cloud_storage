@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecureCloud File Storage</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      background: #fff;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      border-radius: 15px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 30px;
+    }
+    .upload-section {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 30px;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    input[type="file"] {
+      margin-bottom: 15px;
+      padding: 10px;
+      border: 2px dashed #ddd;
+      border-radius: 5px;
+      width: 100%;
+      max-width: 400px;
+    }
+    button {
+      padding: 12px 25px;
+      background: linear-gradient(45deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    .status {
+      margin-top: 15px;
+      text-align: center;
+      padding: 10px;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .files-section {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+    }
+    h3 {
+      color: #333;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    li {
+      padding: 15px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    li:last-child {
+      border-bottom: none;
+    }
+    a {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 SecureCloud File Storage</h1>
+
+    <div class="upload-section">
+      <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="fileInput" name="file" required />
+        <button type="submit">Upload & Encrypt File</button>
+        <div class="status" id="statusMsg"></div>
+      </form>
+    </div>
+
+    <div class="files-section">
+      <h3>📁 Available Files</h3>
+      <ul id="fileList"></ul>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('uploadForm');
+    const fileList = document.getElementById('fileList');
+    const statusMsg = document.getElementById('statusMsg');
+
+    // Handle upload
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('fileInput');
+      
+      if (!fileInput.files[0]) {
+        showStatus('Please select a file', 'error');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      try {
+        const res = await fetch('/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await res.json();
+        
+        if (res.ok) {
+          showStatus(`✅ ${result.message}`, 'success');
+        } else {
+          showStatus(`❌ ${result.error}`, 'error');
+        }
+      } catch (error) {
+        showStatus(`❌ Upload failed: ${error.message}`, 'error');
+      } finally {
+        fileInput.value = '';
+        fetchFiles();
+      }
+    });
+
+    function showStatus(message, type) {
+      statusMsg.innerText = message;
+      statusMsg.className = `status ${type}`;
+      setTimeout(() => {
+        statusMsg.innerText = '';
+        statusMsg.className = 'status';
+      }, 5000);
+    }
+
+    // Fetch list of files
+    async function fetchFiles() {
+      try {
+        const res = await fetch('/files');
+        const files = await res.json();
+        fileList.innerHTML = '';
+        
+        if (files.length === 0) {
+          fileList.innerHTML = '<li style="text-align: center; color: #666;">No files uploaded yet.</li>';
+        } else {
+          files.forEach(file => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+              <span>📄 ${file}</span>
+              <a href="/download/${file}" download>⬇️ Download</a>
+            `;
+            fileList.appendChild(li);
+          });
+        }
+      } catch (error) {
+        fileList.innerHTML = '<li style="text-align: center; color: #dc3545;">Error loading files</li>';
+      }
+    }
+
+    // Load on page start
+    fetchFiles();
+  </script>
+</body>
+</html> 

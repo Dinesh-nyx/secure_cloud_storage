@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecureCloud File Sharing</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 800px;
+      margin: 50px auto;
+      background: #fff;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      border-radius: 15px;
+    }
+    h2 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 30px;
+    }
+    .upload-section {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 30px;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    input[type="file"] {
+      margin-bottom: 15px;
+      padding: 10px;
+      border: 2px dashed #ddd;
+      border-radius: 5px;
+      width: 100%;
+      max-width: 400px;
+    }
+    button {
+      padding: 12px 25px;
+      background: linear-gradient(45deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 15px;
+      text-align: center;
+      padding: 10px;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .status.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    .files-section {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+    }
+    h3 {
+      color: #333;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    li {
+      padding: 15px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background-color 0.3s ease;
+    }
+    li:hover {
+      background-color: #f8f9fa;
+    }
+    li:last-child {
+      border-bottom: none;
+    }
+    a {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .cloud-badge {
+      background: #28a745;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .local-badge {
+      background: #6c757d;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🔐 SecureCloud File Sharing</h2>
+
+    <div class="upload-section">
+      <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="fileInput" name="file" required />
+        <button type="submit" id="uploadBtn">
+          <span id="uploadText">Upload to Cloud Storage</span>
+          <span id="uploadLoading" class="loading" style="display: none;"></span>
+        </button>
+        <div class="status" id="statusMsg"></div>
+      </form>
+    </div>
+
+    <div class="files-section">
+      <h3>📁 Available Files</h3>
+      <ul id="fileList"></ul>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('uploadForm');
+    const fileList = document.getElementById('fileList');
+    const statusMsg = document.getElementById('statusMsg');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadText = document.getElementById('uploadText');
+    const uploadLoading = document.getElementById('uploadLoading');
+
+    // Handle upload
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('fileInput');
+      
+      if (!fileInput.files[0]) {
+        showStatus('Please select a file', 'error');
+        return;
+      }
+
+      // Show loading state
+      uploadBtn.disabled = true;
+      uploadText.style.display = 'none';
+      uploadLoading.style.display = 'inline-block';
+      
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      try {
+        const res = await fetch('/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await res.json();
+        
+        if (res.ok) {
+          if (result.cloud_id) {
+            showStatus(`✅ ${result.message}`, 'success');
+          } else {
+            showStatus(`⚠️ ${result.message}`, 'info');
+          }
+        } else {
+          showStatus(`❌ ${result.error}`, 'error');
+        }
+      } catch (error) {
+        showStatus(`❌ Upload failed: ${error.message}`, 'error');
+      } finally {
+        // Reset loading state
+        uploadBtn.disabled = false;
+        uploadText.style.display = 'inline';
+        uploadLoading.style.display = 'none';
+        fileInput.value = '';
+        fetchFiles();
+      }
+    });
+
+    function showStatus(message, type) {
+      statusMsg.innerText = message;
+      statusMsg.className = `status ${type}`;
+      setTimeout(() => {
+        statusMsg.innerText = '';
+        statusMsg.className = 'status';
+      }, 5000);
+    }
+
+    // Fetch list of files
+    async function fetchFiles() {
+      try {
+        const res = await fetch('/files');
+        const files = await res.json();
+        fileList.innerHTML = '';
+        
+        if (files.length === 0) {
+          fileList.innerHTML = '<li style="text-align: center; color: #666;">No files uploaded yet.</li>';
+        } else {
+          files.forEach(file => {
+            const li = document.createElement('li');
+            // Check if file has cloud_id in metadata
+            const hasCloudId = file.cloud_id || file.source === 'cloud';
+            const isLocalFile = file.source === 'local' || !file.source;
+            
+            li.innerHTML = `
+              <div class="file-info">
+                <span>📄 ${file.name}</span>
+                ${hasCloudId ? '<span class="cloud-badge">☁️ Cloud</span>' : ''}
+                ${isLocalFile ? '<span class="local-badge">💾 Local</span>' : ''}
+              </div>
+              <a href="/download/${file.name}" download>⬇️ Download</a>
+            `;
+            fileList.appendChild(li);
+          });
+        }
+      } catch (error) {
+        fileList.innerHTML = '<li style="text-align: center; color: #dc3545;">Error loading files</li>';
+      }
+    }
+
+    // Load on page start
+    fetchFiles();
+  </script>
+</body>
+</html>
