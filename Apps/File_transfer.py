@@ -91,18 +91,27 @@ def decrypt_file(encrypted_data, key):
 # Upload to cloud storage
 def upload_to_cloud(file_data, filename):
     """Upload encrypted file to Google Drive"""
+    print(f"☁️ Starting cloud upload for: {filename}")
+    print(f"📊 File size: {len(file_data)} bytes")
+    
     try:
+        print("🔐 Initializing Google Drive service...")
         service = get_google_drive_service()
         if not service:
+            print("❌ Google Drive service initialization failed")
             return None, "Google Drive not configured"
+        
+        print("✅ Google Drive service initialized successfully")
         
         # Create file metadata
         file_metadata = {
             'name': filename + '.enc',
             'parents': []  # Upload to root folder
         }
+        print(f"📝 File metadata created: {file_metadata['name']}")
         
         # Create media upload
+        print("📤 Creating media upload object...")
         media = MediaIoBaseUpload(
             io.BytesIO(file_data),
             mimetype='application/octet-stream',
@@ -110,18 +119,23 @@ def upload_to_cloud(file_data, filename):
         )
         
         # Upload file
+        print("🚀 Starting file upload to Google Drive...")
         try:
             file = service.files().create(
                 body=file_metadata,
                 media_body=media,
                 fields='id'
             ).execute()
-            return file.get('id'), None
+            
+            cloud_id = file.get('id')
+            print(f"✅ Cloud upload successful! File ID: {cloud_id}")
+            print(f"🔗 Google Drive URL: https://drive.google.com/file/d/{cloud_id}/view")
+            return cloud_id, None
         except Exception as e:
-            print(f"Cloud upload failed: {str(e)}")
+            print(f"❌ Cloud upload failed: {str(e)}")
             return None, str(e)
     except Exception as e:
-        print(f"Error initializing Google Drive service: {str(e)}")
+        print(f"❌ Error initializing Google Drive service: {str(e)}")
         return None, str(e)
 
 # Download from cloud storage
@@ -166,22 +180,38 @@ def index():
 # Upload endpoint
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    print("\n" + "="*60)
+    print("📁 NEW FILE UPLOAD REQUEST")
+    print("="*60)
+    
     if 'file' not in request.files:
+        print("❌ No file part in request")
         return jsonify({'error': 'No file part'}), 400
     file = request.files['file']
     if file.filename == '':
+        print("❌ No selected file")
         return jsonify({'error': 'No selected file'}), 400
 
     filename = secure_filename(file.filename)
+    print(f"📄 Original filename: {file.filename}")
+    print(f"🔒 Secure filename: {filename}")
+    
     file_data = file.read()
+    print(f"📊 Original file size: {len(file_data)} bytes")
+    
+    print("🔐 Encrypting file with AES-128...")
     encrypted_data = encrypt_file(file_data, KEY)
+    print(f"🔒 Encrypted file size: {len(encrypted_data)} bytes")
 
     # Save locally
     encrypted_path = os.path.join(app.config['UPLOAD_FOLDER'], filename + '.enc')
+    print(f"💾 Saving encrypted file locally: {encrypted_path}")
     with open(encrypted_path, 'wb') as f:
         f.write(encrypted_data)
+    print("✅ Local storage completed")
 
     # Upload to cloud
+    print("\n☁️ Starting cloud upload process...")
     cloud_file_id, cloud_error = upload_to_cloud(encrypted_data, filename)
     
     if cloud_file_id:
@@ -192,8 +222,15 @@ def upload_file():
             'local_path': encrypted_path
         }
         metadata_path = os.path.join(app.config['UPLOAD_FOLDER'], filename + '.meta.json')
+        print(f"📝 Saving metadata: {metadata_path}")
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f)
+        
+        print("✅ METADATA SAVED SUCCESSFULLY")
+        print(f"📋 Cloud ID: {cloud_file_id}")
+        print(f"📁 Encrypted filename: {filename}.enc")
+        print("🎉 UPLOAD COMPLETED SUCCESSFULLY (Local + Cloud)")
+        print("="*60 + "\n")
         
         return jsonify({
             'message': 'File uploaded and encrypted successfully (Local + Cloud)',
@@ -201,6 +238,10 @@ def upload_file():
             'cloud_id': cloud_file_id
         }), 200
     else:
+        print("⚠️ CLOUD UPLOAD FAILED - Local storage only")
+        print(f"❌ Cloud error: {cloud_error}")
+        print("="*60 + "\n")
+        
         return jsonify({
             'message': 'File uploaded locally only (Cloud upload failed)',
             'filename': filename + '.enc',
